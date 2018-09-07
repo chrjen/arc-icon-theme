@@ -34,6 +34,8 @@ rm -rf $THEMEDIR/actions/{32,32@2x,48,48@2x,64,64@2x,96,96@2x,128,128@2x} # derp
 cp -ru animations $THEMEDIR/.
 cp -ru panel $THEMEDIR/.
 
+# Ensure cache folder exists
+mkdir .cache
 
 # Takes in an svg-file and an object-id and formats it
 # to an inkscape export shell command that inkscape can
@@ -68,11 +70,11 @@ genInkscapeCmds() {
     do
         for OBJECT_ID in `cat <($INKSCAPE -S $CONTEXT.svg | grep -E "_$SIZE" | sed 's/\,.*$//')`
         do
-            echo $OBJECT_ID >> .$CONTEXT.cache.tmp
+            echo $OBJECT_ID >> .cache/$CONTEXT.cache.tmp
             formatInkscapeCmd $CONTEXT $OBJECT_ID
         done
     done
-    mv .$CONTEXT.cache.tmp .$CONTEXT.cache
+    mv .cache/$CONTEXT.cache.tmp .cache/$CONTEXT.cache
 }
 
 # Generates inkscape export commands that matches
@@ -86,7 +88,7 @@ genInkscapeCmdsFiltered() {
     do
         echo "Match: $OBJECT_ID" >&2
         formatInkscapeCmd $CONTEXT $OBJECT_ID
-    done < <(grep -E $REGEX .$CONTEXT.cache)
+    done < <(grep -E $REGEX .cache/$CONTEXT.cache)
 }
 
 if [[ ! -z $1 ]]
@@ -94,9 +96,9 @@ then
     echo "Rendering objects with IDs matching regex"
     for CONTEXT in ${TYPES[@]}
     do
-        if [[ -f .$CONTEXT.cache ]] || { [[ ! -f .$CONTEXT.cache ]] && ($INKSCAPE -S $CONTEXT.svg | grep -E "_[0-9]+" | sed 's/\,.*$//' > .$CONTEXT.cache.tmp); }
+        if [[ -f .cache/$CONTEXT.cache ]] || { [[ ! -f .cache/$CONTEXT.cache ]] && ($INKSCAPE -S $CONTEXT.svg | grep -E "_[0-9]+" | sed 's/\,.*$//' > .cache/$CONTEXT.cache.tmp); }
         then
-            mv .$CONTEXT.cache.tmp .$CONTEXT.cache 2> /dev/null
+            mv .cache/$CONTEXT.cache.tmp .cache/$CONTEXT.cache 2> /dev/null
             genInkscapeCmdsFiltered $CONTEXT $1 | java SplitJob $INKSCAPE --shell
         else
             echo "Failed creating creating object-ID cache for $CONTEXT.svg"
@@ -107,10 +109,10 @@ else
     do
         # Only render out the icons if the svg-file has been modified
         # since we finished rendering it out last.
-        if [[ $CONTEXT.svg -nt .${CONTEXT}_timestamp ]]
+        if [[ $CONTEXT.svg -nt .cache/${CONTEXT}_timestamp ]]
         then
             echo "Rendering icons from $CONTEXT.svg"
-            genInkscapeCmds $CONTEXT | java SplitJob $INKSCAPE --shell && touch .${CONTEXT}_timestamp
+            genInkscapeCmds $CONTEXT | java SplitJob $INKSCAPE --shell && touch .cache/${CONTEXT}_timestamp
         else
             echo "No changes to $CONTEXT.svg, skipping..."
         fi
